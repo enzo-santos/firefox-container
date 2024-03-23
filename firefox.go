@@ -3,9 +3,9 @@ package firefox_container
 import (
 	"fmt"
 	"log"
-	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"syscall"
 
@@ -75,18 +75,10 @@ func (f FirefoxPortable) Load(extractor TokenExtractor, options FirefoxLoadOptio
 			// an important operation: if the browser is not closed by this operation, the user can close it manually.
 			pid := cmd.Process.Pid
 
-			if process, err := os.FindProcess(pid); err == nil {
-				if process == nil {
-					logger.Printf("os.FindProcess has not found any process with PID %d\n", pid)
-				} else {
-					if err := process.Kill(); err == nil {
-						logger.Printf("process.Kill has been called successfully on PID %d\n", pid)
-					} else {
-						logger.Printf("process.Kill returned an error for PID %d: %v\n", pid, err)
-					}
-				}
+			if err := exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(pid)).Run(); err != nil {
+				logger.Printf("taskkill returned an error for PID %d: %v\n", pid, err)
 			} else {
-				logger.Printf("os.FindProcess returned an error for PID %d: %v", pid, err)
+				logger.Printf("taskkill has been called successfully on PID %d\n", pid)
 			}
 		}()
 	}
