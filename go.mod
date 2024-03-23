@@ -1,4 +1,4 @@
-module firefox_container
+module github.com/enzo-santos/firefox_container
 
 go 1.22
 
