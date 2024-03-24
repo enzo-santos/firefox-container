@@ -106,7 +106,8 @@ func (f FirefoxPortable) Load(extractor TokenExtractor, options FirefoxLoadOptio
 					bearerTokenErr = nil
 					return
 				}
-				if event.Has(fsnotify.Write) && filepath.Base(event.Name) == filepath.Base(databasePath) {
+				op := fsnotify.Op(extractor.GetListenEvent())
+				if event.Has(op) && filepath.Base(event.Name) == filepath.Base(databasePath) {
 					if result, err := extractor.Parse(event.Name); err != nil {
 						bearerToken = ""
 						bearerTokenErr = err

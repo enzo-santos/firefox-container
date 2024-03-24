@@ -4,7 +4,17 @@ import (
 	"net/url"
 )
 
+type TokenExtractorListenEvent int
+
+const (
+	CreateListenEvent = 1 << iota
+	WriteListenEvent
+)
+
 type TokenExtractor interface {
+	// GetListenEvent should return to which directory listening event (create or update) the driver should react to.
+	GetListenEvent() TokenExtractorListenEvent
+
 	// GetLoginUrl should return a URL that the user can visit so that they can enter their credential data manually.
 	GetLoginUrl() *url.URL
 
