@@ -1,9 +1,7 @@
 package firefox_container
 
 import (
-	"bufio"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -33,62 +31,30 @@ type CookieReader interface {
 }
 
 // Jsonlz4CookieReader reads the Data/profile/sessionstore-backups/recovery.jsonlz4 file
-type Jsonlz4CookieReader struct {
-	LeadingCompressedBytesIgnoredAmount   int
-	LeadingDecompressedBytesIgnoredAmount int
-
-	CompressionFactorRangeMin  int
-	CompressionFactorRangeMax  int
-	CompressionFactorRangeStep int
-}
-
-func NewJsonlz4CookieReader() Jsonlz4CookieReader {
-	return Jsonlz4CookieReader{
-		LeadingCompressedBytesIgnoredAmount:   2,
-		LeadingDecompressedBytesIgnoredAmount: 21,
-
-		CompressionFactorRangeMin:  5,
-		CompressionFactorRangeMax:  30,
-		CompressionFactorRangeStep: 5,
-	}
-}
+type Jsonlz4CookieReader struct{}
 
 func (r Jsonlz4CookieReader) Read(path string) ([]http.Cookie, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("error while opening %s: %v", path, err)
 	}
-	reader := bufio.NewReader(file)
-	for i := 0; i < r.LeadingCompressedBytesIgnoredAmount; i++ {
-		if _, err := reader.ReadByte(); err != nil {
-			return nil, fmt.Errorf("error while skipping leading compressed bytes: %v", err)
-		}
-	}
 
-	compressedBytes, err := io.ReadAll(reader)
+	compressedBytes, err := io.ReadAll(file)
 	if err != nil {
 		return nil, fmt.Errorf("error while reading compressed bytes: %v", err)
 	}
 
+	var outputMaxSize int64
+	for i := 8; i < 12; i++ {
+		outputMaxSize += int64(compressedBytes[i]) << (8 * (i - 8))
+	}
 	var decompressedBytes []byte
-	var wErr error
-	for compressionFactor := r.CompressionFactorRangeMin; compressionFactor <= r.CompressionFactorRangeMax; compressionFactor += r.CompressionFactorRangeStep {
-		decompressedBytes = make([]byte, len(compressedBytes)*compressionFactor)
-		decompressedSize, err := lz4.UncompressBlock(compressedBytes, decompressedBytes)
-		if err != nil {
-			if errors.Is(lz4.ErrInvalidSourceShortBuffer, err) {
-				wErr = err
-				continue
-			}
-			return nil, fmt.Errorf("error while trying to decompress bytes with factor %d: %v", compressionFactor, err)
-		}
-		decompressedBytes = decompressedBytes[r.LeadingDecompressedBytesIgnoredAmount:decompressedSize]
-		wErr = nil
-		break
+	decompressedBytes = make([]byte, outputMaxSize)
+	decompressedSize, err := lz4.UncompressBlock(compressedBytes[12:], decompressedBytes)
+	if err != nil {
+		return nil, fmt.Errorf("error while trying to decompress bytes: %v", err)
 	}
-	if wErr != nil {
-		return nil, fmt.Errorf("error while trying to decompress bytes: %v", wErr)
-	}
+	decompressedBytes = decompressedBytes[:decompressedSize]
 
 	type FileContents struct {
 		Cookies []struct {
