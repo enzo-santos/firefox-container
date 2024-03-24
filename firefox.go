@@ -2,14 +2,12 @@ package firefox_container
 
 import (
 	"fmt"
+	"github.com/fsnotify/fsnotify"
 	"log"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"sync"
-	"syscall"
-
-	"github.com/fsnotify/fsnotify"
 )
 
 type FirefoxPortable struct {
@@ -63,10 +61,7 @@ func (f FirefoxPortable) Load(extractor TokenExtractor, options FirefoxLoadOptio
 
 	// Check if the user wants to authenticate manually
 	if options.OpenBrowser {
-		cmd := exec.Command(f.ExecutablePath(), "-new-tab", extractor.GetLoginUrl().String())
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP,
-		}
+		cmd := exec.Command(f.ExecutablePath(), "-new-tab", "-wait-for-browser", extractor.GetLoginUrl().String())
 		if err := cmd.Start(); err != nil {
 			return "", fmt.Errorf("error while launching the browser: %v", err)
 		}
@@ -74,11 +69,8 @@ func (f FirefoxPortable) Load(extractor TokenExtractor, options FirefoxLoadOptio
 			// Here, errors are ignored because this is an operation implemented only for convenience. That is, it's not
 			// an important operation: if the browser is not closed by this operation, the user can close it manually.
 			pid := cmd.Process.Pid
-
 			if err := exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(pid)).Run(); err != nil {
 				logger.Printf("taskkill returned an error for PID %d: %v\n", pid, err)
-			} else {
-				logger.Printf("taskkill has been called successfully on PID %d\n", pid)
 			}
 		}()
 	}
