@@ -1,6 +1,6 @@
 # firefox_container
 
-A driver for automated authentications using Firefox Portable.
+A Windows driver for automated authentications using Firefox Portable.
 
 ## Installation
 
